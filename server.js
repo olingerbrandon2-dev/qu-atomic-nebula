@@ -7,25 +7,34 @@ const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 
 // =======================================================
-// 1. SECRET OWNER CODE (Only YOU should know this)
-// Change this to ANYTHING unique
+// 1. SECRET OWNER CODE (Stored in Render ENV variable)
 // =======================================================
-const OWNER_PC_CODE = process.env.NEBULA_OWNER_KEY;
-
-
+const OWNER_PC_CODE = process.env.NEBULA_OWNER_KEY || "";
 
 // =======================================================
-// 2. STORAGE ENGINE FOR MULTER (file uploads)
-// Saves to /uploads with unique names
+// Ensure uploads folder exists (VERY IMPORTANT on Render)
+// =======================================================
+const uploadsPath = path.join(__dirname, "uploads");
+
+if (!fs.existsSync(uploadsPath)) {
+    console.log("Uploads folder missing. Creating it...");
+    fs.mkdirSync(uploadsPath);
+}
+
+
+// =======================================================
+// 2. STORAGE ENGINE FOR MULTER
+// Saves uploaded files to /uploads with unique names
 // =======================================================
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, "uploads/");
+        cb(null, uploadsPath);
     },
     filename: function (req, file, cb) {
         cb(null, Date.now() + "-" + file.originalname);
@@ -37,47 +46,52 @@ const upload = multer({ storage: storage });
 
 // =======================================================
 // 3. PUBLIC STATIC FILES
-// Serves your index.html and other public assets
+// Serves your index.html + styling + JS
 // =======================================================
-app.use(express.static("public"));
-app.use("/uploads", express.static("uploads"));
+const publicPath = path.join(__dirname, "public");
+app.use(express.static(publicPath));
+app.use("/uploads", express.static(uploadsPath));
 
 
 // =======================================================
-// 4. HIDDEN AUTH ROUTE
-// This is your secret "second page"
-// The public NEVER sees this
+// 4. HIDDEN OWNER-AUTH ROUTE
+// Returns the owner code (ONLY for your own front-end)
 // =======================================================
 app.get("/nebula-core-auth-839218", (req, res) => {
-    res.json({ ownerCode: OWNER_PC_CODE });
+    res.json({ ownerCode: OWNER_PC_CODE ? true : false });
 });
 
 
 // =======================================================
-// 5. UPLOAD ROUTE (OWNER ONLY)
-// Checks if request contains correct secret code
+// 5. FILE UPLOAD ROUTE — OWNER ONLY
+// Checks for x-nebula-code header
 // =======================================================
 app.post("/upload", (req, res, next) => {
 
-    // Read secret header sent by your main page
     const incoming = req.headers["x-nebula-code"];
 
-    if (incoming !== OWNER_PC_CODE) {
+    if (!incoming || incoming !== OWNER_PC_CODE) {
+        console.log("UPLOAD BLOCKED — Incorrect owner key");
         return res.status(403).json({ error: "Forbidden: Not owner PC" });
     }
 
     next();
+
 }, upload.single("file"), (req, res) => {
+
+    if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+    }
+
     res.json({ status: "success", file: req.file });
 });
 
 
 // =======================================================
-// 6. LIST ALL FILES ROUTE
-// Returns a list of all uploaded files
+// 6. LIST FILES ROUTE — Public
 // =======================================================
 app.get("/files", (req, res) => {
-    fs.readdir("uploads/", (err, files) => {
+    fs.readdir(uploadsPath, (err, files) => {
         if (err) return res.json({ files: [] });
         res.json({ files });
     });
@@ -85,13 +99,12 @@ app.get("/files", (req, res) => {
 
 
 // =======================================================
-// 7. SEARCH ROUTE
-// Case-insensitive filename search
+// 7. SEARCH FILES ROUTE — Public
 // =======================================================
 app.get("/search", (req, res) => {
     const q = (req.query.q || "").toLowerCase();
 
-    fs.readdir("uploads/", (err, files) => {
+    fs.readdir(uploadsPath, (err, files) => {
         if (err) return res.json({ files: [] });
 
         const matches = files.filter(f => f.toLowerCase().includes(q));
@@ -102,11 +115,9 @@ app.get("/search", (req, res) => {
 
 // =======================================================
 // 8. START THE SERVER (Render-Compatible)
-// Render *requires* using process.env.PORT
 // =======================================================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`Qu-Atomic Nebula server running on port ${PORT}`);
 });
-
