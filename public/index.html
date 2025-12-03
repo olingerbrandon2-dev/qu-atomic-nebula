@@ -139,80 +139,90 @@ button:hover {
     <div id="fileList"></div>
 
     <script>
+    let nebulaKey = "";
 
-        /* Store owner key temporarily */
-        let nebulaKey = "";
+    async function unlockUpload() {
+        const inputKey = document.getElementById("ownerKey").value.trim();
 
-        function unlockUpload() {
-            nebulaKey = document.getElementById("ownerKey").value.trim();
+        if (!inputKey) {
+            alert("Enter a key first.");
+            return;
+        }
 
-            if (nebulaKey.length < 1) {
-                alert("Invalid key.");
-                return;
+        // Test if key is valid by checking protected endpoint
+        const test = await fetch("/files", {
+            headers: { "x-nebula-code": inputKey }
+        });
+
+        if (test.status === 403) {
+            alert("❌ Incorrect Owner Key!");
+            return;
+        }
+
+        // KEY IS VALID
+        nebulaKey = inputKey;
+        document.getElementById("uploadSection").style.display = "block";
+        alert("✅ Owner key accepted. Upload unlocked.");
+    }
+
+    async function upload() {
+        if (!nebulaKey) {
+            alert("Upload locked. Enter owner key first.");
+            return;
+        }
+
+        const fileInput = document.getElementById("uploadFile");
+        if (!fileInput.files.length) return;
+
+        const form = new FormData();
+        form.append("file", fileInput.files[0]);
+
+        const res = await fetch("/upload", { 
+            method: "POST", 
+            body: form,
+            headers: {
+                "x-nebula-code": nebulaKey
             }
+        });
 
-            document.getElementById("uploadSection").style.display = "block";
-            alert("Owner key accepted. Upload unlocked.");
+        if (res.status !== 200) {
+            alert("Upload failed — wrong key or server blocked it.");
+            return;
         }
 
-        async function upload() {
-            if (!nebulaKey) {
-                alert("Upload locked. Enter owner key first.");
-                return;
-            }
-
-            const fileInput = document.getElementById("uploadFile");
-            if (!fileInput.files.length) return;
-
-            const form = new FormData();
-            form.append("file", fileInput.files[0]);
-
-            const res = await fetch("/upload", { 
-                method: "POST", 
-                body: form,
-                headers: {
-                    "x-nebula-code": nebulaKey
-                }
-            });
-
-            if (res.status !== 200) {
-                alert("Upload failed — wrong key or server blocked it.");
-                return;
-            }
-
-            alert("Uploaded!");
-            loadFiles();
-        }
-
-        async function loadFiles() {
-            const res = await fetch("/files");
-            const data = await res.json();
-            displayFiles(data.files);
-        }
-
-        async function searchFiles() {
-            const q = document.getElementById("search").value;
-            const res = await fetch("/search?q=" + encodeURIComponent(q));
-            const data = await res.json();
-            displayFiles(data.files);
-        }
-
-        function displayFiles(files) {
-            const container = document.getElementById("fileList");
-            container.innerHTML = "";
-
-            files.forEach(file => {
-                const div = document.createElement("div");
-                div.className = "file-box";
-                div.innerHTML = `
-                    <b>${file}</b><br>
-                    <a href="/uploads/${file}" download>Download</a>
-                `;
-                container.appendChild(div);
-            });
-        }
-
+        alert("Uploaded!");
         loadFiles();
+    }
+
+    async function loadFiles() {
+        const res = await fetch("/files");
+        const data = await res.json();
+        displayFiles(data.files);
+    }
+
+    async function searchFiles() {
+        const q = document.getElementById("search").value;
+        const res = await fetch("/search?q=" + encodeURIComponent(q));
+        const data = await res.json();
+        displayFiles(data.files);
+    }
+
+    function displayFiles(files) {
+        const container = document.getElementById("fileList");
+        container.innerHTML = "";
+
+        files.forEach(file => {
+            const div = document.createElement("div");
+            div.className = "file-box";
+            div.innerHTML = `
+                <b>${file}</b><br>
+                <a href="/uploads/${file}" download>Download</a>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    loadFiles();
     </script>
 
 </body>
