@@ -15,7 +15,7 @@ body {
     font-family: 'Orbitron', sans-serif;
     padding: 20px;
     overflow-x: hidden;
-    text-align: center; /* CENTER EVERYTHING */
+    text-align: center;
 }
 
 /* Main Title */
@@ -120,8 +120,15 @@ button:hover {
     <!-- GOOGLE STYLE SEARCH BAR -->
     <input type="text" id="search" placeholder="Search files..." oninput="searchFiles()">
 
+    <!-- OWNER LOGIN -->
+    <div id="keySection" style="margin-top:30px;">
+        <input id="ownerKey" type="password" placeholder="Enter Owner Key..." 
+               style="padding:8px; width:250px; border-radius:6px; border:1px solid #6d00d4; background:#120020; color:white;">
+        <button onclick="unlockUpload()">Unlock Upload</button>
+    </div>
+
     <!-- Upload Section -->
-    <div id="uploadSection">
+    <div id="uploadSection" style="display:none;">
         <h3>Upload a File</h3>
         <input type="file" id="uploadFile">
         <button onclick="upload()">Upload</button>
@@ -132,14 +139,46 @@ button:hover {
     <div id="fileList"></div>
 
     <script>
+
+        /* Store owner key temporarily */
+        let nebulaKey = "";
+
+        function unlockUpload() {
+            nebulaKey = document.getElementById("ownerKey").value.trim();
+
+            if (nebulaKey.length < 1) {
+                alert("Invalid key.");
+                return;
+            }
+
+            document.getElementById("uploadSection").style.display = "block";
+            alert("Owner key accepted. Upload unlocked.");
+        }
+
         async function upload() {
+            if (!nebulaKey) {
+                alert("Upload locked. Enter owner key first.");
+                return;
+            }
+
             const fileInput = document.getElementById("uploadFile");
             if (!fileInput.files.length) return;
 
             const form = new FormData();
             form.append("file", fileInput.files[0]);
 
-            await fetch("/upload", { method: "POST", body: form });
+            const res = await fetch("/upload", { 
+                method: "POST", 
+                body: form,
+                headers: {
+                    "x-nebula-code": nebulaKey
+                }
+            });
+
+            if (res.status !== 200) {
+                alert("Upload failed — wrong key or server blocked it.");
+                return;
+            }
 
             alert("Uploaded!");
             loadFiles();
@@ -148,7 +187,6 @@ button:hover {
         async function loadFiles() {
             const res = await fetch("/files");
             const data = await res.json();
-
             displayFiles(data.files);
         }
 
@@ -156,7 +194,6 @@ button:hover {
             const q = document.getElementById("search").value;
             const res = await fetch("/search?q=" + encodeURIComponent(q));
             const data = await res.json();
-
             displayFiles(data.files);
         }
 
