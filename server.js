@@ -100,9 +100,11 @@ app.get("/search", (req, res) => {
 
 
 // =======================================================
-// 8. START THE SERVER
+// 8. START THE SERVER (Render-Compatible)
+// Render *requires* using process.env.PORT
 // =======================================================
-app.listen(3000, () => {
-    console.log("Qu-Atomic Nebula server running at:");
-    console.log("➡ http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log(`Qu-Atomic Nebula server running on port ${PORT}`);
 });
