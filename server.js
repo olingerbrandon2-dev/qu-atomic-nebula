@@ -15,7 +15,8 @@ app.use(cors());
 // 1. SECRET OWNER CODE (Only YOU should know this)
 // Change this to ANYTHING unique
 // =======================================================
-const OWNER_PC_CODE = "Your_Password";
+const OWNER_PC_CODE = process.env.NEBULA_OWNER_KEY;
+
 
 
 // =======================================================
@@ -108,3 +109,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Qu-Atomic Nebula server running on port ${PORT}`);
 });
+
