@@ -1,229 +1,70 @@
-<!DOCTYPE html> 
-<html>
-<head>
-    <title>Qu-Atomic Nebula</title>
-	
-    <style>
-/* Cosmic Background */
-body {
-    background: radial-gradient(circle at 20% 20%, #1a0033, #000 70%), 
-                url('https://i.imgur.com/4NJlZOp.png');
-    background-size: cover;
-    background-attachment: fixed;
+// =======================================================
+// Qu-Atomic Nebula — Open Upload Version
+// =======================================================
 
-    color: white;
-    font-family: 'Orbitron', sans-serif;
-    padding: 20px;
-    overflow-x: hidden;
-    text-align: center;
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
+const cors = require("cors");
+
+const app = express();
+app.use(cors());
+
+// Create uploads folder if missing
+const uploadsPath = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+    console.log("Uploads folder created.");
 }
 
-/* Main Title */
-h1 {
-    font-size: 3.2rem;
-    color: #c770ff;
-    margin-top: 40px;
-    margin-bottom: 5px;
-    text-shadow: 
-        0 0 20px #a83cff,
-        0 0 40px #a83cff,
-        0 0 80px #6d00d4;
-}
-
-/* Sub-title */
-h2#sub {
-    font-size: 1.2rem;
-    margin-top: -10px;
-    margin-bottom: 40px;
-    color: #dca6ff;
-    text-shadow: 0 0 12px #8831ff;
-}
-
-/* Google-style search bar */
-#search {
-    width: 60%;
-    max-width: 500px;
-    height: 45px;
-    font-size: 1.2rem;
-    padding-left: 15px;
-    border-radius: 30px;
-    border: 1px solid #6d00d4;
-    background: rgba(25, 0, 45, 0.7);
-    color: #d6b7ff;
-    box-shadow: 0 0 14px #4700a8 inset;
-}
-
-#search::placeholder {
-    color: #bc8fff;
-    opacity: 0.7;
-}
-
-/* Buttons */
-button {
-    background: #4f0099;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-    box-shadow: 0 0 10px #a200ff;
-    transition: 0.2s;
-    margin: 10px;
-}
-
-button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px #d06bff;
-}
-
-/* Upload section container */
-#uploadSection {
-    margin-top: 40px;
-}
-
-/* File boxes */
-.file-box {
-    background: rgba(20, 0, 40, 0.75);
-    padding: 15px;
-    margin: 10px auto;
-    border-radius: 12px;
-    border: 1px solid #6d00d4;
-    box-shadow: 0 0 15px #4700a8 inset;
-    width: 60%;
-    max-width: 600px;
-    text-align: left;
-}
-
-.file-box b {
-    color: #eabfff;
-    text-shadow: 0 0 10px #bb70ff;
-}
-
-.file-box a {
-    color: #9f60ff;
-    text-decoration: none;
-}
-
-.file-box a:hover {
-    color: #dca6ff;
-}
-    </style>
-
-</head>
-<body>
-
-    <!-- Main Cosmic Title -->
-    <h1>Qu-Atomic Nebula</h1>
-    <h2 id="sub">Storage Beyond The Stars</h2>
-
-    <!-- GOOGLE STYLE SEARCH BAR -->
-    <input type="text" id="search" placeholder="Search files..." oninput="searchFiles()">
-
-    <!-- OWNER LOGIN -->
-    <div id="keySection" style="margin-top:30px;">
-        <input id="ownerKey" type="password" placeholder="Enter Owner Key..." 
-               style="padding:8px; width:250px; border-radius:6px; border:1px solid #6d00d4; background:#120020; color:white;">
-        <button onclick="unlockUpload()">Unlock Upload</button>
-    </div>
-
-    <!-- Upload Section -->
-    <div id="uploadSection" style="display:none;">
-        <h3>Upload a File</h3>
-        <input type="file" id="uploadFile">
-        <button onclick="upload()">Upload</button>
-    </div>
-
-    <!-- File List -->
-    <h2>Files:</h2>
-    <div id="fileList"></div>
-
-    <script>
-    let nebulaKey = "";
-
-    async function unlockUpload() {
-        const inputKey = document.getElementById("ownerKey").value.trim();
-
-        if (!inputKey) {
-            alert("Enter a key first.");
-            return;
-        }
-
-        // Test if key is valid by checking protected endpoint
-        const test = await fetch("/files", {
-            headers: { "x-nebula-code": inputKey }
-        });
-
-        if (test.status === 403) {
-            alert("❌ Incorrect Owner Key!");
-            return;
-        }
-
-        // KEY IS VALID
-        nebulaKey = inputKey;
-        document.getElementById("uploadSection").style.display = "block";
-        alert("✅ Owner key accepted. Upload unlocked.");
+// Multer storage
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadsPath);
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + "-" + file.originalname);
     }
+});
 
-    async function upload() {
-        if (!nebulaKey) {
-            alert("Upload locked. Enter owner key first.");
-            return;
-        }
+const upload = multer({ storage: storage });
 
-        const fileInput = document.getElementById("uploadFile");
-        if (!fileInput.files.length) return;
+// Static files
+app.use(express.static("public"));
+app.use("/uploads", express.static(uploadsPath));
 
-        const form = new FormData();
-        form.append("file", fileInput.files[0]);
-
-        const res = await fetch("/upload", { 
-            method: "POST", 
-            body: form,
-            headers: {
-                "x-nebula-code": nebulaKey
-            }
-        });
-
-        if (res.status !== 200) {
-            alert("Upload failed — wrong key or server blocked it.");
-            return;
-        }
-
-        alert("Uploaded!");
-        loadFiles();
+// Open upload route (NO KEY REQUIRED)
+app.post("/upload", upload.single("file"), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
     }
+    res.json({ status: "success", file: req.file });
+});
 
-    async function loadFiles() {
-        const res = await fetch("/files");
-        const data = await res.json();
-        displayFiles(data.files);
-    }
+// Get all files
+app.get("/files", (req, res) => {
+    fs.readdir(uploadsPath, (err, files) => {
+        if (err) return res.json({ files: [] });
+        res.json({ files });
+    });
+});
 
-    async function searchFiles() {
-        const q = document.getElementById("search").value;
-        const res = await fetch("/search?q=" + encodeURIComponent(q));
-        const data = await res.json();
-        displayFiles(data.files);
-    }
+// Search
+app.get("/search", (req, res) => {
+    const q = (req.query.q || "").toLowerCase();
 
-    function displayFiles(files) {
-        const container = document.getElementById("fileList");
-        container.innerHTML = "";
+    fs.readdir(uploadsPath, (err, files) => {
+        if (err) return res.json({ files: [] });
 
-        files.forEach(file => {
-            const div = document.createElement("div");
-            div.className = "file-box";
-            div.innerHTML = `
-                <b>${file}</b><br>
-                <a href="/uploads/${file}" download>Download</a>
-            `;
-            container.appendChild(div);
-        });
-    }
+        const matches = files.filter(f => f.toLowerCase().includes(q));
+        res.json({ files: matches });
+    });
+});
 
-    loadFiles();
-    </script>
+// Render compatible port
+const PORT = process.env.PORT || 3000;
 
-</body>
-</html>
+app.listen(PORT, () => {
+    console.log(`Qu-Atomic Nebula running on port ${PORT}`);
+});
